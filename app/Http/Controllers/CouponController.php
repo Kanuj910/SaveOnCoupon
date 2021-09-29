@@ -20,6 +20,10 @@ use Auth;
 
 class CouponController extends Controller
 {
+    /**
+     * get the list of active and top coupons to display on home section
+     * @return object
+     */
     public function homeCoupons()
     {
         // return homeCoupons::join('coupons as c','c.id','=','home_coupons.cid')->join('stores as s','s.id','=','c.sid')->get(['c.title','s.title as store','s.seo_url','c.id as cid','s.id as sid','s.image_url as image','c.code','c.expire_date']);
@@ -38,6 +42,10 @@ class CouponController extends Controller
         
     }
 
+    /**
+     * get the list of active and new coupons to display on new section
+     * @return object
+     */
     public function homeCouponsNew()
     {
         return Coupon::join('stores as s','s.id','=','coupons.sid')
@@ -54,46 +62,67 @@ class CouponController extends Controller
         get(['coupons.title','coupons.description','s.title as store','s.seo_url','coupons.id as cid','s.id as sid','s.image_url as image','coupons.code','coupons.expire_date'])->toArray();
         
     }
-    
+
+    /**
+     * get the coupons code based on coupon id
+     * @param int $couponId
+     * @return object
+     */
     public function couponCode($couponId)
     {
-        // echo $couponId;exit;
-        if($couponId>0){
+        if($couponId > 0){
             $coupon = $this->show($couponId);        
             $store = new StoreController;
             $data['coupon'] = $coupon;
             $data['store'] = $store->show($coupon->sid);
             return view('fe.code',compact(['data']));
         }else{
-            echo 'asdf';
+          return view('fe.error',compact(['data']));
         }
     }
 
+    /**
+     * get the coupon based and redirect location url
+     * @param int $couponId
+     */
     public function useCoupon($couponId)
     {
       $url = $this->show($couponId);
       header("Location:".$url->url);
     }
 
+
     public function show($id)
     {
         return Coupon::find($id);
     }
 
+    /**
+     * get the coupon id if the store id was match on it
+     * @param int $sid
+     * @return object
+     */
     public function storeHasCoupon($sid)
     {
         return Coupon::where('sid',$sid)->take(1)->get(['id']);
     }
 
+    /**
+     * get the list of coupons with store name
+     * @return object
+     */
     public function couponAdminList()
     {
         $coupons = Coupon::join('stores as s','s.id','=','coupons.sid')->get(['s.title as store','coupons.code','coupons.title','coupons.description','coupons.expire_date','coupons.id as edit'])->toArray();
         $data = array('page' => 'Coupon','route' => 'coupon.admin.addForm','list' => $coupons,'editroute'=>'coupon.admin.editForm','ajaxReq' => 'storeajax');
-
-        // return view('be.templates.list',compact(['data']));
         return view('be.coupon.list',compact(['data']));
     }
 
+    /**
+     * validator for category add and update
+     * @param array $data
+     * @return object
+     */
     protected function validator(array $data)
     {
         if($data['start_dt']!='' && $data['expire_date']!=''){
@@ -117,6 +146,11 @@ class CouponController extends Controller
         }
     }
 
+    /**
+     * get the list of matching stores
+     * @param Request $request
+     * @return json
+     */
     public function autoComplete(Request $request) {
         $query = $request->get('term', '');
         $stores = Store::where('title', 'LIKE', $query . '%')->take(10)->get();
@@ -127,6 +161,10 @@ class CouponController extends Controller
         return \Response::Json($data);
     }
 
+    /**
+     * set the form data for coupon add
+     * @return view
+     */
     public function couponAdminAddForm()
     {
         $categories = Category::pluck('name','id');
@@ -134,6 +172,11 @@ class CouponController extends Controller
         return view('be.coupon.add',compact(['categories','events']));
     }
 
+    /**
+     * Add coupons
+     * @param Request $request
+     * @return redirect
+     */
     public function couponAdd(Request $request)
     {
         $validator = $this->validator($request->all());
@@ -141,7 +184,7 @@ class CouponController extends Controller
         if ($validator->fails()) {
             $this->throwValidationException(
                 $request, $validator
-            );
+            ); // if validation failed throw error
         }
         $request['title'] = trim($request->title);        
         $request['description'] = trim($request->description);
@@ -153,9 +196,8 @@ class CouponController extends Controller
         $data = $request->all();
         $data['sid'] = $data['id'];
         $data['id'] = '';
-
-        // dd($data);
         $cid = Coupon::create($data)->id;
+        // add coupons to category coupon table
         foreach ($request->cat as $key => $val) {
             $cats = array('cat_id' => $val, 'cid' => $cid);
             CategoryCoupon::create($cats);
@@ -168,9 +210,13 @@ class CouponController extends Controller
         return redirect()->back()->with( ['sid'=> $request->id, 'store' => $request->sid, 'success' => 'Successfully added']);
     }
 
+    /**
+     * set the form data for coupon edit
+     * @param $id
+     * @return view
+     */
     public function couponAdminEditForm($id)
     {
-        // $coupon = $this->show($id);
         $coupon = Coupon::leftjoin('users as uc','uc.id','=','coupons.c_uid')->
         leftjoin('users as uu','uu.id','=','coupons.u_uid')->
         where('coupons.id',$id)->get(['coupons.*','uc.name as created_by','uu.name as updated_by'])->first();
@@ -204,17 +250,15 @@ class CouponController extends Controller
         return view('be.coupon.edit',compact(['data']));
     }
 
+    /**
+     * update coupon
+     * @param Request $request
+     * @param int $id
+     * @return redirect
+     */
     public function couponEdit(Request $request,$id)
     {
-        // $coupons = Coupon::where('discount_value',0)->take(500)
-        // ->get(['id','title']);
-        // foreach ($coupons as $key) {
-        //     $dv = $this->extractOffer($key->title);             
-        //     $c = Coupon::find($key->id);
-        //     $c->update(array('discount_value' => $dv));
-        // }
-        // // dd($coupons);
-        // dd('jo');
+
         $request['IsActive'] = (isset($request['IsActive']) && $request['IsActive']==1 ? 1 : 0);
         $request['freeshipping'] = (isset($request['freeshipping']) && $request['freeshipping']==1 ? 1 : 0);
         $request['discount'] = (isset($request['discount']) && $request['discount']==1 ? 1 : 0);
@@ -252,35 +296,55 @@ class CouponController extends Controller
         return redirect()->back()->withSuccess('Successfully Updated');
     }
 
+    /**
+     * delete coupon
+     * @param int $id
+     * @return boolean
+     */
     public function couponDeactive($id)
     {
-        Coupon::find($id)->delete();
+        return Coupon::find($id)->delete();
     }
 
+    /**
+     * get the coupons details based on id
+     * @param int $id
+     * @return object
+     */
     public function couponById($id)
     {
-        $coupon=Coupon::where('id',$id)->get();
-        return $coupon;
+        return Coupon::where('id',$id)->get();
     }
 
+    /**
+     * get the coupons details based on ids
+     * @param array $data
+     * @return json
+     */
     public function couponByIds($data)
     {
-        $coupons=Coupon::whereIn('id',$data)->get()->toJson();
-        dd($coupons);
+        return Coupon::whereIn('id',$data)->get()->toJson();
     }
 
+    /**
+     * get the coupons by id
+     * @param Request $request
+     * @return json
+     */
     public function getIds(Request $request)
     {
         $data = $request->get('cid','');
         $data1=explode(',', $data);
-        $this->couponByIds($data1);
-    }
-    
-    public function couponByPage()
-    {
-
+        return $this->couponByIds($data1);
     }
 
+    /**
+     * get the list of coupons based on category id
+     * @param array $arr
+     * @param int $cid
+     * @param int $lim
+     * @return object
+     */
     public function couponsByCategory($arr,$cid,$lim)
     {
         return Coupon::join('cat_coupons','cat_coupons.cid','=','coupons.id')
@@ -297,6 +361,13 @@ class CouponController extends Controller
         ->where('categories.id',$cid)->take($lim)->get($arr);
     }
 
+    /**
+     * get the list of coupons based on event id
+     * @param array $arr
+     * @param int $eid
+     * @param int $lim
+     * @return object
+     */
     public function couponsByEvent($arr,$eid,$lim)
     {
         return Coupon::join('eve_coupons','eve_coupons.cid','=','coupons.id')
@@ -305,16 +376,27 @@ class CouponController extends Controller
         ->where('events.id',$eid)->take($lim)->get($arr);
     }
 
+  /**
+   * get the list of coupons based on store id
+   * @param int $sid
+   * @return object
+   */
     public function couponsBySID($sid){
         $store = new StoreController;
         $category = new CategoryController;
         $data = $store->show($sid);
         $data->coupons = $this->couponsByStore(array('coupons.title','coupons.code','coupons.expire_date','coupons.id'),$sid,30);
         $data->categories = $category->categoriesByStore($sid,array('categories.name','categories.id'));
-
         return $data;
     }
 
+    /**
+     * get the list of coupons based on store id
+     * @param array $arr
+     * @param int $sid
+     * @param int $lim
+     * @return object
+     */
     public function couponsByStore($arr,$sid,$lim)
     {
         $res = Coupon::join('stores as s','s.id','=','coupons.sid')->where('s.id',$sid)
@@ -339,6 +421,13 @@ class CouponController extends Controller
         return $res;
     }
 
+    /**
+     * get the list of expire coupons based on store id
+     * @param array $arr
+     * @param int $sid
+     * @param int $lim
+     * @return object
+     */
     public function couponsByStoreExp($arr,$sid,$lim)
     {
         return Coupon::join('stores as s','s.id','=','coupons.sid')->where('s.id',$sid)
@@ -347,6 +436,11 @@ class CouponController extends Controller
         ->take($lim)->orderBy('coupons.id','desc')->get($arr);
     }
 
+    /**
+     * extract the offer based on the string
+     * @param string $str
+     * @return object
+     */
     private function extractOffer($str)
     {
         $toeu = $str;

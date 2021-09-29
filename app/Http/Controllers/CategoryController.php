@@ -11,20 +11,33 @@ use Auth;
 
 class CategoryController extends Controller
 {
+    /**
+     * fetch Category based on id
+     * @param int $id
+     * @return object
+     */
     public function show($id)
     {
         return Category::find($id);
     }
 
+    /**
+     * fetch Category list and display in admin panel
+     * @return object
+     */
     public function categoryAdminList()
-    {
+      {
 
-        $categories = Category::get(['name','seo_url','id as edit'])->toArray();
-        $data = array('page' => 'Category','route' => 'category.admin.addForm','list' => $categories,'editroute'=>'category.admin.editForm');
+          $categories = Category::get(['name','seo_url','id as edit'])->toArray();
+          $data = array('page' => 'Category','route' => 'category.admin.addForm','list' => $categories,'editroute'=>'category.admin.editForm');
 
-        return view('be.templates.list',compact(['data']));
-    }
+          return view('be.templates.list',compact(['data']));
+      }
 
+    /**
+     * set category add form
+     * @return object
+     */
     public function categoryAdminAddForm()
     {
         $category=Category::pluck('name','id');
@@ -38,6 +51,11 @@ class CategoryController extends Controller
         return view('be.templates.add',compact(['data']));
     }
 
+    /**
+     * fetch category edit data
+     * @param int $id
+     * @return object
+     */
     public function categoryAdminEditForm($id)
     {
 
@@ -54,10 +72,18 @@ class CategoryController extends Controller
             ));
 
         return view('be.category.edit',compact(['data','category']));
-    } 
+    }
 
+    /**
+     * validator for category add and update
+     * @param array $data
+     * @param string $form
+     * @param int $id
+     * @return object
+     */
     protected function validator(array $data,$form,$id)
     {
+      // if form name is category use this validation
         if($form=='category'){
             if($id!=''){
                 return Validator::make($data, [
@@ -71,6 +97,7 @@ class CategoryController extends Controller
                 ]);
             }
         }elseif($form=='seo'){
+          // if form name is category use this validation
             return Validator::make($data, [
                 'meta_title' => 'max:70|min:10',
                 'meta_description' => 'max:170|min:10',
@@ -81,97 +108,129 @@ class CategoryController extends Controller
         }
     }
 
-	public function categoryAdd(Request $request)
-	{
-        $validator = $this->validator($request->all(),'category','');
-
-        if ($validator->fails()) {
-            $this->throwValidationException(
-                $request, $validator
-            );
-        }
-
-        $request['c_uid'] = Auth::user()->id;
-        $request['parent_id'] = ($request->parent_id == '' ? 0 : $request->parent_id );
-
-        $category = Category::create($request->all());
-        return redirect()->route('category.admin.list')->withSuccess( 'successfully added');
-
-	}
-
-	public function categoryEdit(Request $request,$id)
-	{
-
-        if(isset($request->h1)){
-            $validator = $this->validator($request->all(),'seo',$id);
-        }else{
-            $validator = $this->validator($request->all(),'category',$id);
-        }
-
-        if ($validator->fails()) {
-            $this->throwValidationException(
-                $request, $validator
-            );
-        }
-
-        $request['u_uid'] = Auth::user()->id;
-        $request['parent_id'] = ($request->parent_id == '' ? 0 : $request->parent_id );
-
-        $category=Category::find($id);
-        $category->update($request->all());
-
-        if(isset($request->h1)){
-            return redirect()->back()->withSuccess( 'Successfully updated');
-        }else{
-            return redirect()->back()->withSuccess( 'Successfully updated');
-        }
-	}
-
-	public function categoryDeactive($id)
-	{
-		Category::find($id)->delete();
-        return redirect()->route('category.index')->withSuccess( 'successfully deleted');
-
-
-	}
-
-    public function categoryByStore()
+    /**
+     * add category
+     * @param Request $request
+     * @return redirect
+     */
+    public function categoryAdd(Request $request)
     {
-       $category=Category::with('store')->get();
-        dd($category);
+          $validator = $this->validator($request->all(),'category',''); // validate form for category
+
+          if ($validator->fails()) {
+              $this->throwValidationException(
+                  $request, $validator
+              ); // if validation fails throws validation fail error
+          }
+
+          $request['c_uid'] = Auth::user()->id;
+          $request['parent_id'] = ($request->parent_id == '' ? 0 : $request->parent_id );
+
+          $category = Category::create($request->all());
+          return redirect()->route('category.admin.list')->withSuccess( 'successfully added');
+
     }
-    
+
+    /**
+     * update category
+     * @param Request $request
+     * @param int $id
+     * @return redirect
+     */
+    public function categoryEdit(Request $request,$id)
+    {
+
+          if(isset($request->h1)){
+              $validator = $this->validator($request->all(),'seo',$id); // validate form for seo
+          }else{
+              $validator = $this->validator($request->all(),'category',$id); // validate form form category
+          }
+
+          if ($validator->fails()) {
+              $this->throwValidationException(
+                  $request, $validator
+              );
+          } // if validation fails throws validation fail error
+
+          $request['u_uid'] = Auth::user()->id;
+          $request['parent_id'] = ($request->parent_id == '' ? 0 : $request->parent_id );
+
+          $category=Category::find($id);
+          $category->update($request->all());
+
+          if(isset($request->h1)){
+              return redirect()->back()->withSuccess( 'Successfully updated');
+          }else{
+              return redirect()->back()->withSuccess( 'Successfully updated');
+          }
+    }
+
+    /**
+     * Delete the category
+     * @param int $id
+     * @return redirect
+     */
+    public function categoryDeactive($id)
+    {
+      Category::find($id)->delete();
+      return redirect()->route('category.index')->withSuccess( 'successfully deleted');
+    }
+
+    /**
+     * fetch category name and slug
+     * @param int $id
+     * @return object
+     */
     public function categoryById($id)
     {
         $category=Category::where('id',$id)->get(['name','seo_url']);
         return $category;
     }
 
+  /**
+   * fetch category based on category slug
+   * @param string $url
+   * @return object
+   */
     public function categoryByURL($url)
     {
         $res = Category::where('seo_url','=',$url)->get(['id']);
         return $res;
     }
-
+    /**
+     * fetch category based on category id and return json response
+     * @param int $data1
+     * @return object
+     */
     public function categoryByIds($data1)
     {
-       $categories=Category::whereIn('id',$data1)->get(['name','seo_url'])->toJson();
-       dd($categories);
+       return  Category::whereIn('id',$data1)->get(['name','seo_url'])->toJson();
     }
 
     public function getIds(Request $request)
     {
 
          $data = $request->get('cat_id','');
-        $data1=explode(',', $data);
-        $this->categoryByIds($data1);
+        $data1 = explode(',', $data);
+        return $this->categoryByIds($data1);
     }
 
+    /**
+     * get paraent categories
+     * @param array $arr
+     * @return object
+     */
     public function categories($arr)
     {
         return Category::where('parent_id',0)->get($arr);
     }
 
+  /**
+   * fetch categories based on store
+   * @param int $sid
+   * @param array $arr
+   * @return object
+   */
     public function categoriesByStore($sid,$arr)
     {
         return Category::join('cat_stores','cat_stores.cat_id','=','categories.id')
@@ -179,6 +238,12 @@ class CategoryController extends Controller
         ->where('stores.id',$sid)->get($arr);
     }
 
+    /**
+     * fetch category coupons
+     * @param int $cid
+     * @param array $arr
+     * @return object
+     */
     public function categoriesByCoupon($cid,$arr)
     {
         return Category::join('cat_coupons','cat_coupons.cat_id','=','categories.id')
